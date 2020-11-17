@@ -9,17 +9,23 @@
 
 #include <utility>
 #include <vector>
+#include <cmath>
 
 bool isDoublesEqual(const double a, const double b, double precision = 1e-11) {
   return -precision <= a - b && a - b <= precision;
 }
+
+struct Point;
+struct Vector;
 
 struct Point {
   double x = 0.0, y = 0.0;
 
   Point() = default;
 
-  Point(int x, int y): x(x), y(y) {};
+  explicit Point(const Vector& a);
+
+  Point(double x, double y): x(x), y(y) {};
 
   bool operator==(const Point& other) const {
     return isDoublesEqual(x, other.x) && isDoublesEqual(y, other.y);
@@ -29,6 +35,44 @@ struct Point {
     return !isDoublesEqual(x, other.x) || !isDoublesEqual(y, other.y);
   }
 };
+
+struct Vector {
+  double x = 0.0, y = 0.0;
+
+  Vector() = default;
+
+  Vector(double x, double y): x(x), y(y) {};
+
+  Vector(Point a, Point b): x(b.x - a.x), y(b.y - a.y) {};
+
+  Vector& normalize() {
+    double k = std::pow(x * x + y * y, 0.5);
+    x /= k, y /= k;
+    return *this;
+  }
+
+  bool operator==(const Vector& other) const {
+    return isDoublesEqual(x, other.x) && isDoublesEqual(y, other.y);
+  }
+
+  bool operator!=(const Vector& other) const {
+    return !isDoublesEqual(x, other.x) || !isDoublesEqual(y, other.y);
+  }
+};
+
+Vector operator*(const Vector& a, const double k) {
+  return {a.x * k, a.y * k};
+}
+
+Vector operator+(const Vector& a, const Vector& b) {
+  return {a.x + b.x, a.y + b.y};
+}
+
+double operator*(const Vector& a, const Vector& b) {
+  return a.x * b.y - b.x * a.y;
+}
+
+Point::Point(const Vector& a): x(a.x), y(a.y) {}
 
 class Line {
 public:
@@ -45,8 +89,12 @@ public:
   Line(const double k, const double b): a(k), b(-1.0), c(b) {};
 
   Line(const Point& a, const double & k): Line(k, a.y - a.x * k) {};
-
 };
+
+Point intersect(Line l, Line m) {
+  double det = l.a * m.b - m.a * l.b;
+  return {(m.c * l.b - l.c * m.b) / det, (-m.c * l.a + l.c * m.a) / det};
+}
 
 class Shape {
   virtual double perimeter() const = 0;
@@ -60,10 +108,18 @@ class Shape {
   virtual bool isSimilarTo(const Shape& another) const = 0;
 
   virtual bool containsPoint(const Point& point) const = 0;
+
+  virtual Shape& rotate(const Point& center, double angle) = 0;
+
+  virtual Shape& reflex(const Point& center) = 0;
+
+  virtual Shape& reflex(Line axis) = 0;
+
+  virtual Shape& scale(Point center, double coefficient) = 0;
 };
 
 class Polygon: public Shape {
-private:
+protected:
   std::vector<Point> vertices;
 public:
   Polygon() = default;
@@ -84,34 +140,51 @@ public:
    //TODO implement!!!
   }
 
-  virtual double perimeter() const override {
+  double perimeter() const override {
       //TODO implement!!!
   }
 
-  virtual double area() const override {
+  double area() const override {
       //TODO implement!!!
   }
 
-  virtual bool operator==(const Shape& another) const override {
+  bool operator==(const Shape& another) const override {
       //TODO implement!!!
   }
 
-  virtual bool isCongruentTo(const Shape& another) const override {
+  bool isCongruentTo(const Shape& another) const override {
       //TODO implement!!!
   }
 
-  virtual bool isSimilarTo(const Shape& another) const override {
+  bool isSimilarTo(const Shape& another) const override {
     //TODO implement!!!
   }
 
-  virtual bool containsPoint(const Point& point) const override {
+  bool containsPoint(const Point& point) const override {
+    //TODO implement!!!
+  }
+
+  Shape& rotate(const Point& center, double angle) override {
+    //TODO implement!!!
+  }
+
+  Shape& reflex(const Point& center) override {
+    //TODO implement!!!
+  }
+
+  Shape& reflex(Line axis) override {
+    //TODO implement!!!
+  }
+
+  Shape& scale(Point center, double coefficient) override {
     //TODO implement!!!
   }
 };
 
 class Ellipse: public Shape {
+protected:
   std::pair<Point, Point> focus;
-  double sum_of_distances = 0;
+  double sum_of_distances = 0.0;
 public:
   Ellipse() = default;
 
@@ -138,19 +211,19 @@ public:
     //TODO implement!!!
   }
 
-  virtual double perimeter() const override {
+  double perimeter() const override {
     //TODO implement!!!
   }
 
-  virtual double area() const override {
+  double area() const override {
     //TODO implement!!!
   }
 
-  virtual bool operator==(const Shape& another) const override {
+  bool operator==(const Shape& another) const override {
     //TODO implement!!!
   }
 
-  virtual bool isCongruentTo(const Shape& another) const override {
+  bool isCongruentTo(const Shape& another) const override {
     //TODO implement!!!
   }
 
@@ -158,37 +231,116 @@ public:
       //TODO implement!!!
   }
 
-  virtual bool containsPoint(const Point& point) const override {
+  bool containsPoint(const Point& point) const override {
       //TODO implement!!!
+  }
+
+  Shape& rotate(const Point& center, double angle) override {
+    //TODO implement!!!
+  }
+
+  Shape& reflex(const Point& center) override {
+    //TODO implement!!!
+  }
+
+  Shape& reflex(Line axis) override {
+    //TODO implement!!!
+  }
+
+  Shape& scale(Point center, double coefficient) override {
+    //TODO implement!!!
   }
 };
 
 class Circle: public Ellipse {
-//TODO implement!
+  Point center;
+  double r = 0.0;
 public:
+  Circle() = default;
 
-  virtual double perimeter() const override {
+  Circle(Point center, double r): Ellipse({center, center}, 2.0 * r), center(center), r(r) {};
+
+  double radius() const {
+    return r;
+  }
+
+  double perimeter() const override {
     //TODO implement!!!
   }
 
-  virtual double area() const override {
+  double area() const override {
     //TODO implement!!!
   }
 
-  virtual bool operator==(const Shape& another) const override {
+  bool operator==(const Shape& another) const override {
     //TODO implement!!!
   }
 
-  virtual bool isCongruentTo(const Shape& another) const override {
+  bool isCongruentTo(const Shape& another) const override {
     //TODO implement!!!
   }
 
-  virtual bool isSimilarTo(const Shape& another) const override {
+  bool isSimilarTo(const Shape& another) const override {
     //TODO implement!!!
   }
 
-  virtual bool containsPoint(const Point& point) const override {
+  bool containsPoint(const Point& point) const override {
     //TODO implement!!!
+  }
+};
+
+class Rectangle: public Polygon {
+public:
+  Rectangle(Point a, Point c, double k) {
+    //TODO Implement!!!
+  };
+
+  Point center() {
+    return Point((vertices[0].x + vertices[2].x) / 2, (vertices[0].y + vertices[2].y) / 2);
+  }
+
+  std::pair<Line, Line> diagonals() {
+    return {Line(vertices[0], vertices[2]), Line(vertices[1], vertices[3])};
+  }
+};
+
+class Square: public Rectangle {
+public:
+  Square(Point a, Point c): Rectangle(a, c, 1.0) {};
+
+  Circle circumscribedCircle() {
+    return Circle(center(), std::abs(vertices[0].x - vertices[1].x) / std::pow(2.0, 0.5));
+  }
+
+  Circle inscribedCircle() {
+    return Circle(center(), std::abs(vertices[0].x - vertices[1].x) / 2);
+  }
+};
+
+class Triangle: public Polygon {
+public:
+  Circle circumscribedCircle() {
+    //TODO
+  }
+
+  Circle inscribedCircle() {
+    //TODO
+  }
+
+  Point centroid() {
+    //TODO
+  }
+
+  Point orthocenter() {
+    //TODO
+  }
+
+  Line EulerLine() {
+    //TODO
+  }
+
+  Circle ninePointsCircle() {
+    //TODO
   }
 };
 

@@ -11,6 +11,10 @@ int main() {
   Circle u;
   Ellipse h = u;
 
-  cout << c.getVertices()[0].x;
+  Vector uu = Vector(Point(1, 1), Point());
+
+  auto cc = Point(uu);
+  uu.normalize();
+  cout << (uu * 2).x << ' ' << (uu * 2).y;
   return 0;
 }
