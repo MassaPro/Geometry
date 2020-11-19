@@ -29,7 +29,6 @@ struct Point {
   Point(const double x, const double y): x(x), y(y) {};
 
   bool operator==(const Point& other) const {
-    std::cerr << "Poi\n";
     return isDoublesEqual(x, other.x) && isDoublesEqual(y, other.y);
   }
 
@@ -60,7 +59,6 @@ struct Vector {
   }
 
   bool operator==(const Vector& other) const {
-    std::cerr << "Poi\n";
     return isDoublesEqual(x, other.x) && isDoublesEqual(y, other.y);
   }
 
@@ -101,7 +99,7 @@ double angle(Vector a, Vector b) {
 }
 
 Vector projection(const Vector& a, const Vector& b) {
-  return b * (multiply(a, b) / b.length());
+  return b * (multiply(a, b) / b.length() / b.length());
 }
 
 Point::Point(const Vector& a): x(a.x), y(a.y) {}
@@ -118,7 +116,7 @@ public:
       b(u.x - v.x),
       c(-u.x * v.y + v.x * u.y) {};
 
-  Line(const Point& u, const Vector& t): Line(u, Point(u + t)) {};
+  explicit Line(const Point& u, const Vector& t): Line(u, Point(u + t)) {};
 
   Line(const double k, const double b): a(k), b(-1.0), c(b) {};
 
@@ -126,7 +124,6 @@ public:
 };
 
 bool operator==(const Line& l, const Line& m) {
-  std::cerr << "Line\n";
   double det_ab = l.a * m.b - m.a * l.b;
   double det_ac = l.a * m.c - m.a * l.c;
   return isDoublesEqual(det_ab, 0.0) && isDoublesEqual(det_ac, 0.0);
@@ -159,7 +156,7 @@ public:
 
   virtual void reflex(const Point& center) = 0;
 
-  virtual void reflex(Line axis) = 0;
+  virtual void reflex(const Line& axis) = 0;
 
   virtual void scale(Point center, double coefficient) = 0;
 };
@@ -292,24 +289,30 @@ public:
   }
 
   void rotate(const Point& center, double angle) override {
-    for (size_t i = 0; i < vertices.size(); i++) {
-      vertices[i] = center + Vector(vertices[i] - center).rotate(angle);
+    for (auto& vertice : vertices) {
+      vertice = center + Vector(vertice - center).rotate(angle);
     }
   }
 
   void reflex(const Point& center) override {
-    for (size_t i = 0; i < vertices.size(); i++) {
-      vertices[i] = center + Vector(vertices[i] - center) * -1.0;
+    for (auto& vertice : vertices) {
+      vertice = center + Vector(vertice - center) * -1.0;
     }
   }
 
-  void reflex(Line axis) override {
-    //TODO implement!!!
+  void reflex(const Line& axis) override {
+    Vector direction = Vector(-axis.b, axis.a);
+    Point any = Point(axis.c * axis.a / direction.length(), axis.c * axis.b / direction.length());
+    for (auto& vertice : vertices) {
+      Point prev_vertice = vertice;
+      vertice = any + projection(Vector(any, vertice), direction);
+      vertice = vertice + Vector(prev_vertice, vertice);
+    }
   }
 
   void scale(Point center, double coefficient) override {
-    for (size_t i = 0; i < vertices.size(); i++) {
-      vertices[i] = center + Vector(vertices[i] - center) * coefficient;
+    for (auto& vertice : vertices) {
+      vertice = center + Vector(vertice - center) * coefficient;
     }
   }
 };
@@ -329,8 +332,11 @@ public:
   }
 
   std::pair<Line, Line> directrices() const {
-    //TODO implement!!!
-    std::cerr << "TODO4\n";
+    Vector direction = Vector(center(), focus.first).normalize();
+    Vector normal = direction.rotate(acos(-1) / 2);
+    double coefficient = sum_of_distances / 2 * eccentricity();
+    return {Line(center() + direction * coefficient, normal),
+        Line(center() + direction * -coefficient, normal)};
   }
 
   double eccentricity() const {
@@ -355,14 +361,13 @@ public:
   }
 
   bool operator==(const Shape& other) const override {
-    std::cerr << "Elli\n";
     if (dynamic_cast<const Ellipse*>(&other) == nullptr) {
       return false;
     }
     const auto& another = dynamic_cast<const Ellipse&>(other);
     return isDoublesEqual(sum_of_distances, another.sum_of_distances) &&
-        (focus == another.focus || focus.first == another.focus.second &&
-            focus.second == another.focus.first);
+        (focus == another.focus || (focus.first == another.focus.second &&
+            focus.second == another.focus.first));
   }
 
   bool operator!=(const Shape& other) const override {
@@ -370,13 +375,23 @@ public:
   }
 
   bool isCongruentTo(const Shape& other) const override {
-    //TODO implement!!!
-    std::cerr << "TODO9\n";
+    if (dynamic_cast<const Ellipse*>(&other) == nullptr) {
+      return false;
+    }
+    const auto& another = dynamic_cast<const Ellipse&>(other);
+    return isDoublesEqual(sum_of_distances, another.sum_of_distances) &&
+        isDoublesEqual(Vector(focus.first, focus.second).length(),
+        Vector(another.focus.first, another.focus.second).length());
   }
 
   virtual bool isSimilarTo(const Shape& other) const override {
-      //TODO implement!!!
-    std::cerr << "TODO10\n";
+    if (dynamic_cast<const Ellipse*>(&other) == nullptr) {
+      return false;
+    }
+    auto another = dynamic_cast<const Ellipse&>(other);
+    double coefficient = sum_of_distances / another.sum_of_distances;
+    another.scale(Point(), coefficient);
+    return isCongruentTo(another);
   }
 
   bool containsPoint(const Point& point) const override {
@@ -385,18 +400,18 @@ public:
   }
 
   void rotate(const Point& center, double angle) override {
-    //TODO implement!!!
-    std::cerr << "TODO12\n";
+    focus.first = focus.first + Vector(center, focus.first).rotate(angle);
+    focus.second = focus.second + Vector(center, focus.second).rotate(angle);
   }
 
   void reflex(const Point& center) override {
-    //TODO implement!!!
-    std::cerr << "TODO13\n";
+    scale(center, -1);
   }
 
-  void reflex(Line axis) override {
-    //TODO implement!!!
-    std::cerr << "TODO14\n";
+  void reflex(const Line& axis) override {
+    Polygon polygon = {focus.first, focus.second};
+    polygon.reflex(axis);
+    focus = {polygon.getVertices()[0], polygon.getVertices()[1]};
   }
 
   void scale(Point center, double coefficient) override {
@@ -412,8 +427,10 @@ public:
 
   Circle(Point center, double r): Ellipse(center, center, 2.0 * r) {};
 
+  Circle(Point center, Point a): Circle(center, Vector(center, a).length()) {};
+
   double radius() const {
-    return sum_of_distances / 2;
+    return sum_of_distances / 2.0;
   }
 };
 
@@ -429,7 +446,7 @@ public:
   };
 
   Point center() {
-    return Point((vertices[0].x + vertices[2].x) / 2, (vertices[0].y + vertices[2].y) / 2);
+    return Point((vertices[0].x + vertices[2].x) / 2.0, (vertices[0].y + vertices[2].y) / 2.0);
   }
 
   std::pair<Line, Line> diagonals() {
@@ -446,7 +463,7 @@ public:
   }
 
   Circle inscribedCircle() {
-    return Circle(center(), std::abs(vertices[0].x - vertices[1].x) / 2);
+    return Circle(center(), std::abs(vertices[0].x - vertices[1].x) / 2.0);
   }
 };
 
@@ -455,45 +472,41 @@ public:
   Triangle(Point a, Point b, Point c): Polygon({a, b, c}) {};
 
   Circle circumscribedCircle() {
-    //TODO
-    std::cerr << "TODO16\n";
-    return Circle();
+    Point circumscribed_center = orthocenter() + Vector(orthocenter(), centroid()) * 1.5;
+    return Circle(circumscribed_center, vertices[0]);
   }
 
   Circle inscribedCircle() {
-
-    Line first_bisector = Line(vertices[0], ((vertices[1] - vertices[0]).normalize() +
-        (vertices[2] - vertices[0]).normalize()) * 0.5 + vertices[0]);
-    Line second_bisector = Line(vertices[1], ((vertices[2] - vertices[1]).normalize() +
-        (vertices[0] - vertices[1]).normalize()) * 0.5 + vertices[1]);
+    Line first_bisector = Line(vertices[0], Point(((vertices[1] - vertices[0]).normalize() +
+        (vertices[2] - vertices[0]).normalize()) + vertices[0]));
+    Line second_bisector = Line(vertices[1], Point(((vertices[2] - vertices[1]).normalize() +
+        (vertices[0] - vertices[1]).normalize()) + vertices[1]));
     Point in_center = intersect(first_bisector, second_bisector);
-    return Circle();
+    Vector projector = projection(Vector(vertices[0], in_center),
+     Vector(vertices[0], vertices[1])) + vertices[0];
+    return Circle(in_center, Point(projector));
   }
 
   Point centroid() {
-    return Point();
     return (vertices[0] + vertices[1] + vertices[2]) * (1.0 / 3.0);
   }
 
   Point orthocenter() {
     Line first_altitude = Line(vertices[0],
-        projection(vertices[0] - vertices[1], vertices[2] - vertices[1]) + vertices[1]);
+        Point(projection(vertices[0] - vertices[1], vertices[2] - vertices[1]) + vertices[1]));
     Line second_altitude = Line(vertices[1],
-        projection(vertices[1] - vertices[2], vertices[0] - vertices[2]) + vertices[2]);
-    std::cout << first_altitude.a << ' ' << first_altitude.b << std::endl;
+        Point(projection(vertices[1] - vertices[2], vertices[0] - vertices[2]) + vertices[2]));
     return intersect(first_altitude, second_altitude);
   }
 
   Line EulerLine() {
-    //TODO
-    std::cerr << "TODO20\n";
-    return Line();
+    return Line(orthocenter(), centroid());
   }
 
   Circle ninePointsCircle() {
-    //TODO
-    std::cerr << "TODO\n";
-    return Circle();
+    auto result = circumscribedCircle();
+    result.scale(orthocenter(), 0.5);
+    return result;
   }
 };
 
