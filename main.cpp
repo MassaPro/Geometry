@@ -1,19 +1,106 @@
 #include <iostream>
-#include <vector>
-#include "geometry.h"
 
 using namespace std;
 
+struct Node {
+  Node *next = nullptr;
+  int data = 0;
+};
+
+struct Queue {
+  Node *beg = new Node();
+  Node *end = new Node();
+  size_t size = 0;
+};
+
+void push(Queue &q, int data) {
+  if (!q.size) {
+    Node *new_node = new Node;
+    new_node->data = data;
+
+    q.end = new_node;
+    q.beg = new_node;
+  } else {
+    Node *new_end = new Node;
+    new_end->data = data;
+    q.end->next = new_end;
+    q.end = new_end;
+  }
+
+  q.size++;
+}
+
+int pop(Queue &q) {
+  int beg_old = 0;
+  if (q.size > 0) {
+    beg_old = q.beg->data;
+
+    Node *old_beg = q.beg;
+    q.beg = q.beg->next;
+
+    delete old_beg;
+    q.size--;
+  }
+
+  return beg_old;
+}
+
+void priv_push(Queue &q, int data) {
+  if (q.size > 1) {
+    Node *new_node = new Node;
+    new_node->data = data;
+
+    Node *where_node = q.beg;
+
+    size_t site = (q.size + 1) / 2;
+
+    for (size_t i = 0; i < site; i++) {
+      where_node = where_node->next;
+    }
+    new_node->next = where_node->next;
+
+    where_node->next = new_node;
+
+    q.size++;
+  } else {
+    push(q, data);
+  }
+}
+
+void clear(Queue &q) {
+  while (q.size) {
+    pop(q);
+  }
+}
+
 int main() {
-  Polygon ppp = Polygon({Point(18.1565, -1.82785), Point(4.46915, 5.00267), Point(-4.21555, 7.36405), Point(-4.46915, -5.00267), Point(2.10777, -3.68202), Point(7.89757, -5.25627)});
-  Polygon ddd = Polygon({Point(-2, 2),  Point(1, 2),  Point(6, 1),  Point(3, -1), Point(1,  -1), Point( -1, -2)});
+  Queue queue_goblins;
+  int n;
+  cin >> n;
 
-  Polygon a = Rectangle(Point(1, 1), Point(2,2), 1);
-  Polygon b = Rectangle(Point(0, 0), Point(0, 2), 1);
+  char elem;
+  int number;
 
-  //cout << "is_similar " << a.containsPoint({1.5, 1.5});
-  //cout << (Point(1, 2) == Point(1, 2));
-  Triangle t = Triangle({1, 1}, {5, 5}, {5, 3});
-  print(t.inscribedCircle().center());
+  for (int i = 0; i < n; i++) {
+    cin >> elem;
+
+    if (elem == '+') {
+      cin >> number;
+      cout << i << " " << number;
+      push(queue_goblins, number);
+    }
+    if (elem == '*') {
+      cin >> number;
+      cout << i << " " << number;
+      priv_push(queue_goblins, number);
+    }
+    if (elem == '-') {
+      cout << i << " ";
+      cout << pop(queue_goblins) << '\n';
+    }
+  }
+
+  clear(queue_goblins);
+
   return 0;
 }

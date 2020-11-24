@@ -13,7 +13,7 @@
 #include <cmath>
 
 bool isDoublesEqual(const double a, const double b, double precision = 1e-6) {
-  return -precision <= a - b && a - b <= precision;
+  return std::abs(a - b) <= precision;
 }
 
 struct Point;
@@ -24,7 +24,7 @@ struct Point {
 
   Point() = default;
 
-  Point(const Vector& a);
+  explicit Point(const Vector& a);
 
   Point(const double x, const double y): x(x), y(y) {};
 
@@ -46,7 +46,7 @@ struct Vector {
 
   Vector(const Point& a, const Point& b): x(b.x - a.x), y(b.y - a.y) {};
 
-  Vector(const Point& a): x(a.x), y(a.y) {};
+  explicit Vector(const Point& a): x(a.x), y(a.y) {};
 
   Vector& normalize() {
     double k = std::pow(x * x + y * y, 0.5);
@@ -94,10 +94,6 @@ double operator*(const Vector& a, const Vector& b) {
   return a.x * b.y - b.x * a.y;
 }
 
-double angle(Vector a, Vector b) {
-  return asin(a.normalize() * b.normalize());
-}
-
 Vector projection(const Vector& a, const Vector& b) {
   return b * (multiply(a, b) / b.length() / b.length());
 }
@@ -116,7 +112,7 @@ public:
       b(u.x - v.x),
       c(-u.x * v.y + v.x * u.y) {};
 
-  explicit Line(const Point& u, const Vector& t): Line(u, Point(u + t)) {};
+  explicit Line(const Point& u, const Vector& t): Line(u, Point(static_cast<Vector>(u) + t)) {};
 
   Line(const double k, const double b): a(k), b(-1.0), c(b) {};
 
@@ -167,7 +163,7 @@ protected:
 public:
   Polygon() = default;
 
-  Polygon(const std::vector<Point>& vertices): vertices(vertices) {};
+  explicit Polygon(const std::vector<Point>& vertices): vertices(vertices) {};
 
   Polygon(const std::initializer_list<Point>& l) : vertices(l) {};
 
@@ -183,7 +179,8 @@ public:
     bool more_zero = false, less_zero = false;
     for (size_t i = 0; i < vertices.size(); i++) {
       if (Vector(vertices[i], vertices[(i + 1) % vertices.size()]) *
-          Vector(vertices[(i + 1) % vertices.size()], vertices[(i + 2) % vertices.size()]) > 0) {
+          Vector(vertices[(i + 1) % vertices.size()],
+       vertices[(i + 2) % vertices.size()]) > 0) {
         more_zero = true;
       } else {
         less_zero = true;
@@ -219,8 +216,9 @@ public:
         if (vertices[(j + i) % vertices.size()] != another.vertices[j]) break;
         if (j + 1 == vertices.size()) return true;
       }
-      for (size_t j = vertices.size() - 1; j >= 0; --j) {
-        if (vertices[((int)vertices.size() - j - 1 + i) % vertices.size()] != another.vertices[j]) break;
+      for (size_t j = vertices.size() - 1; ; --j) {
+        if (vertices[((int)vertices.size() - j - 1 + i) %
+            vertices.size()] != another.vertices[j]) break;
         if (j == 0) return true;
       }
     }
@@ -239,19 +237,26 @@ public:
     if (another.vertices.size() != vertices.size()) return false;
     Point this_centroid, other_centroid;
     for (size_t i = 0; i < verticesCount(); i++) {
-      this_centroid = this_centroid + vertices[i];
-      other_centroid = other_centroid + another.vertices[i];
+      this_centroid = static_cast<Point>(static_cast<Vector>(this_centroid) +
+          static_cast<Vector>(vertices[i]));
+      other_centroid = static_cast<Point>(static_cast<Vector>(other_centroid) +
+          static_cast<Vector>(another.vertices[i]));
     }
-    this_centroid = this_centroid * (1.0 / vertices.size());
-    other_centroid = other_centroid * (1.0 / another.vertices.size());
+    this_centroid = static_cast<Point>(static_cast<Vector>(this_centroid) *
+        (1.0 / vertices.size()));
+    other_centroid = static_cast<Point>(static_cast<Vector>(other_centroid) *
+        (1.0 / another.vertices.size()));
     Polygon this_copy, other_copy;
     for (size_t i = 0; i < vertices.size(); i++) {
-      this_copy.vertices.emplace_back(Vector(vertices[i] - this_centroid).length(),
+      this_copy.vertices.emplace_back(Vector(static_cast<Vector>(vertices[i]) -
+          static_cast<Vector>(this_centroid)).length(),
           std::abs(Vector(vertices[i], vertices[(i + 1) % vertices.size()]) *
           Vector(vertices[i], vertices[(i - 1 + vertices.size()) % vertices.size()])));
-      other_copy.vertices.emplace_back(Vector(another.vertices[i] - other_centroid).length(),
+      other_copy.vertices.emplace_back(Vector(static_cast<Vector>(another.vertices[i]) -
+          static_cast<Vector>(other_centroid)).length(),
        std::abs(Vector(another.vertices[i], another.vertices[(i + 1) % vertices.size()]) *
-          Vector(another.vertices[i], another.vertices[(i - 1 + vertices.size()) % vertices.size()])));
+          Vector(another.vertices[i],
+           another.vertices[(i - 1 + vertices.size()) % vertices.size()])));
     }
     return this_copy == other_copy;
   }
@@ -280,7 +285,8 @@ public:
     for (size_t i = 0; i < vertices.size(); i++) {
       Point intersection = intersect(shot, Line(vertices[i],
        vertices[(i + 1) % vertices.size()]));
-      if ((intersection - point).x >= 0 && multiply(Vector(intersection, vertices[i]),
+      if ((static_cast<Vector>(intersection) - static_cast<Vector>(point)).x >= 0 &&
+          multiply(Vector(intersection, vertices[i]),
           Vector(intersection, vertices[(i + 1) % vertices.size()])) < 0) {
         result++;
       }
@@ -290,29 +296,38 @@ public:
 
   void rotate(const Point& center, double angle) override {
     for (auto& vertice : vertices) {
-      vertice = center + Vector(vertice - center).rotate(angle);
+      vertice = static_cast<Point>(static_cast<Vector>(center) +
+          Vector(static_cast<Vector>(vertice) -
+          static_cast<Vector>(center)).rotate(angle));
     }
   }
 
   void reflex(const Point& center) override {
     for (auto& vertice : vertices) {
-      vertice = center + Vector(vertice - center) * -1.0;
+      vertice = static_cast<Point>(static_cast<Vector>(center) +
+          Vector(static_cast<Vector>(vertice) -
+          static_cast<Vector>(center)) * -1.0);
     }
   }
 
   void reflex(const Line& axis) override {
     Vector direction = Vector(-axis.b, axis.a);
-    Point any = Point(axis.c * axis.a / direction.length(), axis.c * axis.b / direction.length());
+    Point any = Point(axis.c * axis.a / direction.length(),
+     axis.c * axis.b / direction.length());
     for (auto& vertice : vertices) {
       Point prev_vertice = vertice;
-      vertice = any + projection(Vector(any, vertice), direction);
-      vertice = vertice + Vector(prev_vertice, vertice);
+      vertice = static_cast<Point>(static_cast<Vector>(any) +
+          projection(Vector(any, vertice), direction));
+      vertice = static_cast<Point>(static_cast<Vector>(vertice) +
+          Vector(prev_vertice, vertice));
     }
   }
 
   void scale(Point center, double coefficient) override {
     for (auto& vertice : vertices) {
-      vertice = center + Vector(vertice - center) * coefficient;
+      vertice = static_cast<Point>(static_cast<Vector>(center) +
+          Vector(static_cast<Vector>(vertice) -
+          static_cast<Vector>(center)) * coefficient);
     }
   }
 };
@@ -335,17 +350,20 @@ public:
     Vector direction = Vector(center(), focus.first).normalize();
     Vector normal = direction.rotate(acos(-1) / 2);
     double coefficient = sum_of_distances / 2 * eccentricity();
-    return {Line(center() + direction * coefficient, normal),
-        Line(center() + direction * -coefficient, normal)};
+    return {Line(static_cast<Point>(static_cast<Vector>(center()) +
+        static_cast<Vector>(direction) * coefficient), normal),
+        Line(static_cast<Point>(static_cast<Vector>(center()) +
+        static_cast<Vector>(direction * -coefficient)), normal)};
   }
 
   double eccentricity() const {
-    return std::abs(Vector(focus.first - center()).length() /
-        sum_of_distances * 2);
+    return std::abs(Vector(static_cast<Vector>(focus.first) -
+        static_cast<Vector>(center())).length() / sum_of_distances * 2);
   }
 
   Point center() const {
-    return (focus.first + focus.second) * 0.5;
+    return static_cast<Point>((static_cast<Vector>(focus.first) +
+        static_cast<Vector>(focus.second)) * 0.5);
   }
 
   double perimeter() const override {
@@ -384,7 +402,7 @@ public:
         Vector(another.focus.first, another.focus.second).length());
   }
 
-  virtual bool isSimilarTo(const Shape& other) const override {
+  bool isSimilarTo(const Shape& other) const override {
     if (dynamic_cast<const Ellipse*>(&other) == nullptr) {
       return false;
     }
@@ -400,8 +418,10 @@ public:
   }
 
   void rotate(const Point& center, double angle) override {
-    focus.first = focus.first + Vector(center, focus.first).rotate(angle);
-    focus.second = focus.second + Vector(center, focus.second).rotate(angle);
+    focus.first = static_cast<Point>(static_cast<Vector>(focus.first) +
+        Vector(center, focus.first).rotate(angle));
+    focus.second = static_cast<Point>(static_cast<Vector>(focus.second) +
+        Vector(center, focus.second).rotate(angle));
   }
 
   void reflex(const Point& center) override {
@@ -415,8 +435,10 @@ public:
   }
 
   void scale(Point center, double coefficient) override {
-    focus.first = center + Vector(focus.first - center) * coefficient;
-    focus.second = center + Vector(focus.second - center) * coefficient;
+    focus.first = static_cast<Point>(static_cast<Vector>(center) +
+        Vector(static_cast<Vector>(focus.first) - static_cast<Vector>(center)) * coefficient);
+    focus.second = static_cast<Point>(static_cast<Vector>(center) +
+        Vector(static_cast<Vector>(focus.second) - static_cast<Vector>(center)) * coefficient);
     sum_of_distances *= coefficient;
   }
 };
@@ -438,15 +460,18 @@ class Rectangle: public Polygon {
 public:
   Rectangle(const Point& a, const Point& c, double k) {
     if (k < 1.0) k = 1.0 / k;
-    Point b = a + (Vector(a, c) * (1.0 / std::pow(1.0 + k * k, 0.5))).
-        rotate(asin(1.0 * k / std::pow(1.0 + k * k, 0.5)));
-    Point d = a + (Vector(a, c) * (k / std::pow(1.0 + k * k, 0.5))).
-        rotate(asin(-1.0 / std::pow(1.0 + k * k, 0.5)));
+    Point b = static_cast<Point>(static_cast<Vector>(a) + (Vector(a, c) *
+        (1.0 / std::pow(1.0 + k * k, 0.5))).
+        rotate(asin(1.0 * k / std::pow(1.0 + k * k, 0.5))));
+    Point d = static_cast<Point>(static_cast<Vector>(a) + (Vector(a, c) *
+        (k / std::pow(1.0 + k * k, 0.5))).
+        rotate(asin(-1.0 / std::pow(1.0 + k * k, 0.5))));
     vertices = {a, b, c, d};
   };
 
   Point center() {
-    return Point((vertices[0].x + vertices[2].x) / 2.0, (vertices[0].y + vertices[2].y) / 2.0);
+    return Point((vertices[0].x + vertices[2].x) / 2.0,
+        (vertices[0].y + vertices[2].y) / 2.0);
   }
 
   std::pair<Line, Line> diagonals() {
@@ -459,7 +484,8 @@ public:
   Square(Point a, Point c): Rectangle(a, c, 1.0) {};
 
   Circle circumscribedCircle() {
-    return Circle(center(), std::abs(vertices[0].x - vertices[1].x) / std::pow(2.0, 0.5));
+    return Circle(center(),
+        std::abs(vertices[0].x - vertices[1].x) / std::pow(2.0, 0.5));
   }
 
   Circle inscribedCircle() {
@@ -472,30 +498,40 @@ public:
   Triangle(Point a, Point b, Point c): Polygon({a, b, c}) {};
 
   Circle circumscribedCircle() {
-    Point circumscribed_center = orthocenter() + Vector(orthocenter(), centroid()) * 1.5;
+    Point circumscribed_center = static_cast<Point>(static_cast<Vector>(orthocenter()) +
+        Vector(orthocenter(), centroid()) * 1.5);
     return Circle(circumscribed_center, vertices[0]);
   }
 
   Circle inscribedCircle() {
-    Line first_bisector = Line(vertices[0], Point(((vertices[1] - vertices[0]).normalize() +
-        (vertices[2] - vertices[0]).normalize()) + vertices[0]));
-    Line second_bisector = Line(vertices[1], Point(((vertices[2] - vertices[1]).normalize() +
-        (vertices[0] - vertices[1]).normalize()) + vertices[1]));
+    Line first_bisector = Line(vertices[0], Point(((static_cast<Vector>(vertices[1]) -
+        static_cast<Vector>(vertices[0])).normalize() +
+        (static_cast<Vector>(vertices[2]) - static_cast<Vector>(vertices[0])).normalize()) +
+        static_cast<Vector>(vertices[0])));
+    Line second_bisector = Line(vertices[1], Point(((static_cast<Vector>(vertices[2]) -
+        static_cast<Vector>(vertices[1])).normalize() +
+        (static_cast<Vector>(vertices[0]) - static_cast<Vector>(vertices[1])).normalize()) +
+        static_cast<Vector>(vertices[1])));
     Point in_center = intersect(first_bisector, second_bisector);
     Vector projector = projection(Vector(vertices[0], in_center),
-     Vector(vertices[0], vertices[1])) + vertices[0];
+     Vector(vertices[0], vertices[1])) + static_cast<Vector>(vertices[0]);
     return Circle(in_center, Point(projector));
   }
 
   Point centroid() {
-    return (vertices[0] + vertices[1] + vertices[2]) * (1.0 / 3.0);
+    return static_cast<Point>((static_cast<Vector>(vertices[0]) +
+        static_cast<Vector>(vertices[1]) + static_cast<Vector>(vertices[2])) * (1.0 / 3.0));
   }
 
   Point orthocenter() {
     Line first_altitude = Line(vertices[0],
-        Point(projection(vertices[0] - vertices[1], vertices[2] - vertices[1]) + vertices[1]));
+        Point(projection(static_cast<Vector>(vertices[0]) -
+        static_cast<Vector>(vertices[1]), static_cast<Vector>(vertices[2]) -
+        static_cast<Vector>(vertices[1])) + static_cast<Vector>(vertices[1])));
     Line second_altitude = Line(vertices[1],
-        Point(projection(vertices[1] - vertices[2], vertices[0] - vertices[2]) + vertices[2]));
+        Point(projection(static_cast<Vector>(vertices[1]) -
+        static_cast<Vector>(vertices[2]), static_cast<Vector>(vertices[0]) -
+        static_cast<Vector>(vertices[2])) + static_cast<Vector>(vertices[2])));
     return intersect(first_altitude, second_altitude);
   }
 
